@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPT 스마트 플래너 (연보라톤 모바일 최적화)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for mobile-first design - Lavender Theme */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #fcfcfc; /* Very light ivory/off-white */
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        .container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .input-group, .action-button {
+            /* Soft Violet Shadow: Based on violet-400 */
+            box-shadow: 0 4px 6px -1px rgba(167, 139, 250, 0.1), 0 2px 4px -2px rgba(167, 139, 250, 0.1);
+        }
+        .action-button {
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 0.75rem;
+            transition: all 0.2s;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 0.5rem;
+        }
+        .schedule-item {
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            background-color: #ffffff;
+            /* Violet accent border */
+            border-left: 5px solid #8b5cf6; /* Violet-500 accent */
+        }
+        .feedback-input {
+            /* Light violet border */
+            border: 1px solid #ddd6fe; /* Violet-200 border */
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            margin-top: 0.5rem;
+            width: 100%;
+            font-size: 0.9rem;
+        }
+        /* Overriding Tailwind Checkbox color to Violet */
+        input[type='checkbox'] {
+            color: #7c3aed; /* Violet-600 */
+        }
+        /* Mobile-specific adjustments */
+        @media (max-width: 640px) {
+            body { padding: 0.5rem; }
+            .action-button { font-size: 0.9rem; padding: 0.6rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Title updated to "Time blocks" and color kept at text-violet-600 -->
+    <h1 class="text-2xl font-bold text-center text-violet-600 py-4">Time blocks 💜</h1>
+
+    <!-- 1. API Key Input -->
+    <div class="input-group bg-white p-4 rounded-xl">
+        <label for="apiKey" class="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+            🔑 OpenAI API Key (암호화 입력)
+        </label>
+        <!-- Focus ring and border color uses violet-500 -->
+        <input type="password" id="apiKey" placeholder="여기에 API Key를 입력하세요" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-violet-500 focus:border-violet-500 text-sm">
+    </div>
+
+    <!-- 2. Mode Selector (Daily/Weekly) -->
+    <div class="flex space-x-2 p-1 bg-white rounded-xl shadow">
+        <!-- Mode buttons use violet-400 (base theme color) -->
+        <button id="modeDaily" class="flex-1 py-3 font-semibold rounded-lg transition-colors bg-violet-400 text-white">Daily Planner</button>
+        <button id="modeWeekly" class="flex-1 py-3 font-semibold rounded-lg transition-colors text-gray-600 hover:bg-violet-50 transition-colors">Weekly Planner</button>
+    </div>
+
+    <!-- 3. Task Input -->
+    <div class="input-group bg-white p-4 rounded-xl">
+        <label for="taskInput" class="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+            ✍️ 오늘/이번 주 할 일 목록 (구체적으로 작성)
+        </label>
+        <!-- Focus ring and border color uses violet-500 -->
+        <textarea id="taskInput" rows="4" placeholder="예: 오늘 오픽 공부 3시간, 이메일 확인 1시간, 헬스장 가기, 저녁 식사 준비&#10;주간: 프로젝트 기획안 마무리, 책 1권 읽기" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-violet-500 focus:border-violet-500 text-sm"></textarea>
+    </div>
+
+    <!-- 4. Action Buttons (All unified to Violet theme) -->
+    <div class="grid grid-cols-3 gap-2">
+        <!-- Primary Action: Generate Schedule (Darker for emphasis) -->
+        <button id="generateBtn" class="action-button bg-violet-500 text-white hover:bg-violet-600 active:bg-violet-700 col-span-3 flex items-center justify-center">
+            🚀 Generate Schedule
+        </button>
+        <!-- Secondary Actions: Save, Load, Clear (Brighter/Lighter for softer look) -->
+        <!-- Unified color: bg-violet-300 for base, text-violet-800 for contrast -->
+        <button id="saveBtn" class="action-button bg-violet-300 text-violet-800 hover:bg-violet-400 hover:text-white active:bg-violet-500">
+            💾 Save
+        </button>
+        <button id="loadBtn" class="action-button bg-violet-300 text-violet-800 hover:bg-violet-400 hover:text-white active:bg-violet-500">
+            📁 Load
+        </button>
+        <button id="clearBtn" class="action-button bg-violet-300 text-violet-800 hover:bg-violet-400 hover:text-white active:bg-violet-500">
+            ❌ Clear
+        </button>
+    </div>
+    
+    <!-- 5. Status & Loading Message -->
+    <div id="statusMessage" class="text-center p-3 text-sm font-medium text-gray-500 min-h-[20px]"></div>
+
+    <!-- 6. Achievement Score (New Feature) -->
+    <div id="achievementDisplay" class="bg-yellow-100 p-3 rounded-xl text-center font-bold text-yellow-800 hidden">
+        🔥 최종 성취도: <span id="achievementScore">0%</span> 달성!
+    </div>
+
+    <!-- 7. Schedule Output Area -->
+    <!-- Schedule output background uses a very light violet-50 -->
+    <div id="scheduleOutput" class="space-y-3 p-4 bg-violet-50 rounded-xl min-h-[150px]">
+        <h3 class="text-lg font-semibold text-gray-600 text-center">AI 생성 스케줄이 여기에 표시됩니다.</h3>
+    </div>
+</div>
+
+<script>
+    // Constants
+    const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
+    const LOCAL_STORAGE_KEY = 'gptSmartPlannerSchedules';
+    
+    // DOM Elements
+    const apiKeyInput = document.getElementById('apiKey');
+    const taskInput = document.getElementById('taskInput');
+    const scheduleOutput = document.getElementById('scheduleOutput');
+    const statusMessage = document.getElementById('statusMessage');
+    const achievementDisplay = document.getElementById('achievementDisplay');
+    const achievementScore = document.getElementById('achievementScore');
+    const modeDailyBtn = document.getElementById('modeDaily');
+    const modeWeeklyBtn = document.getElementById('modeWeekly');
+    
+    // State
+    let currentMode = 'daily'; // 'daily' or 'weekly'
+    let currentSchedule = []; // The currently displayed, parsed schedule (for saving)
+    let feedbackHistory = []; // Loaded from localStorage, used for prompt
+    
+    // --- Utility Functions ---
+
+    /**
+     * Shows a message temporarily in the status bar.
+     * @param {string} msg 
+     * @param {boolean} isError 
+     */
+    function showStatus(msg, isError = false) {
+        statusMessage.textContent = msg;
+        statusMessage.className = `text-center p-3 text-sm font-medium min-h-[20px] ${isError ? 'text-red-600' : 'text-green-600'}`;
+        setTimeout(() => {
+            statusMessage.textContent = '';
+            statusMessage.className = 'text-center p-3 text-sm font-medium text-gray-500 min-h-[20px]';
+        }, 3000);
+    }
+
+    /**
+     * Fetches feedback history from localStorage.
+     */
+    function loadFeedbackHistory() {
+        const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (storedData) {
+            feedbackHistory = JSON.parse(storedData).filter(item => item.feedback && item.feedback.trim() !== '');
+        } else {
+            feedbackHistory = [];
+        }
+        console.log("Loaded Feedback History:", feedbackHistory);
+    }
+    
+    /**
+     * Saves the current schedule and all history to localStorage.
+     */
+    function saveSchedule() {
+        if (currentSchedule.length === 0) {
+            return showStatus('저장할 스케줄이 없습니다. 먼저 생성해주세요.', true);
+        }
+
+        // 1. Gather current user feedback from the UI before saving
+        const taskElements = scheduleOutput.querySelectorAll('.schedule-item'); // Get all schedule items
+        const feedbackElements = scheduleOutput.querySelectorAll('.feedback-input');
+
+        const tasksWithFeedback = currentSchedule.map((task, index) => {
+            const feedbackText = feedbackElements[index] ? feedbackElements[index].value : '';
+            // Check the current state of the checkbox in the UI
+            const isCompleted = taskElements[index]?.querySelector('input[type="checkbox"]')?.checked || false;
+            return { ...task, userFeedback: feedbackText, isCompleted: isCompleted };
+        });
+        
+        // 2. Prepare feedback for the history (only aggregate the main feedback text)
+        const aggregatedFeedback = Array.from(feedbackElements)
+                                        .map(el => el.value.trim())
+                                        .filter(f => f.length > 0)
+                                        .join(' / ');
+
+
+        // 3. Create the new historical entry
+        const newEntry = {
+            date: new Date().toISOString().substring(0, 10),
+            mode: currentMode,
+            tasks: tasksWithFeedback,
+            feedback: aggregatedFeedback,
+            // Use the raw task input as raw schedule text for better regeneration on load
+            rawScheduleText: taskInput.value.trim(), 
+        };
+
+        // 4. Update the history array (appending the new, detailed entry)
+        const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+        let history = storedData ? JSON.parse(storedData) : [];
+        
+        // Always add a new entry when saving, as it reflects the current session's feedback and task list.
+        history.push(newEntry);
+
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(history));
+        loadFeedbackHistory(); // Reload history for the next prompt
+        showStatus('✅ 현재 스케줄과 피드백이 저장되었습니다.');
+        calculateAchievement();
+    }
+    
+    /**
+     * Loads and displays a list of saved schedules for the user to choose.
+     */
+    function loadSchedules() {
+        const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+        const history = storedData ? JSON.parse(storedData) : [];
+        
+        if (history.length === 0) {
+            return showStatus('저장된 스케줄이 없습니다.', true);
+        }
+
+        // Output header uses violet-700
+        scheduleOutput.innerHTML = `<h3 class="text-xl font-bold mb-4 text-violet-700">📂 저장된 스케줄 목록</h3>`;
+        
+        history.reverse().forEach((item, index) => {
+            const dateStr = item.date;
+            const modeStr = item.mode === 'daily' ? '일간' : '주간';
+            
+            // Item background uses violet-100, text uses violet-800, hover uses violet-200
+            const loadBtn = document.createElement('button');
+            loadBtn.className = 'w-full text-left p-3 my-2 bg-violet-100 text-violet-800 rounded-lg hover:bg-violet-200 transition-colors';
+            loadBtn.innerHTML = `<strong>${modeStr} 플래너 (${dateStr})</strong><br><span class="text-sm text-gray-600">최근 피드백: ${item.feedback || '없음'}</span>`;
+            
+            loadBtn.onclick = () => {
+                // Load the schedule back into the main view
+                currentMode = item.mode;
+                // Use the saved raw schedule text to populate the task input
+                taskInput.value = item.rawScheduleText; 
+                renderSchedule(item.tasks); // Render the detailed tasks with completion/feedback
+                
+                // Update mode button visually
+                if (currentMode === 'daily') {
+                    modeDailyBtn.click();
+                } else {
+                    modeWeeklyBtn.click();
+                }
+                
+                showStatus(`✅ ${dateStr} 스케줄을 불러왔습니다. 수정 후 저장하거나 새로 생성하세요.`);
+            };
+
+            scheduleOutput.appendChild(loadBtn);
+        });
+
+        // Ensure the current schedule is cleared when loading the list
+        currentSchedule = [];
+        achievementDisplay.classList.add('hidden'); // Hide achievement display when showing list
+    }
+
+    /**
+     * Parses the raw text output from GPT and renders the interactive UI.
+     * @param {string | Array<Object>} scheduleData - Raw text or pre-parsed array (for loading).
+     */
+    function renderSchedule(scheduleData) {
+        if (typeof scheduleData === 'string') {
+            // Case: New schedule generation (from raw text)
+            const lines = scheduleData.split('\n').filter(line => line.trim());
+            currentSchedule = lines.map(line => ({
+                text: line.trim(),
+                userFeedback: '',
+                isCompleted: false
+            }));
+        } else {
+            // Case: Loading from saved data (already parsed array)
+            currentSchedule = scheduleData;
+        }
+
+        // Output header uses violet-700
+        scheduleOutput.innerHTML = `<h3 class="text-xl font-bold mb-4 text-violet-700">✨ AI 생성 ${currentMode === 'daily' ? '일간' : '주간'} 스케줄</h3>`;
+        
+        const listContainer = document.createElement('div');
+        listContainer.className = 'space-y-3';
+
+        currentSchedule.forEach((task) => {
+            const itemDiv = document.createElement('div');
+            // The .schedule-item class already has the violet border-left
+            itemDiv.className = 'schedule-item flex flex-col gap-2'; 
+
+            // 1. Checkbox and Task Text
+            const taskContent = document.createElement('div');
+            taskContent.className = 'flex items-start flex-1';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = task.isCompleted;
+            // Checkbox uses violet-500
+            checkbox.className = 'mt-1 mr-3 h-5 w-5 border-gray-300 rounded focus:ring-violet-500 flex-shrink-0 appearance-none border-2 checked:bg-violet-500 checked:border-violet-500';
+            checkbox.onchange = calculateAchievement;
+            
+            const taskText = document.createElement('span');
+            taskText.className = 'text-gray-800 font-medium break-words';
+            taskText.textContent = task.text;
+
+            taskContent.appendChild(checkbox);
+            taskContent.appendChild(taskText);
+            
+            // 2. Feedback Input
+            const feedbackLabel = document.createElement('label');
+            feedbackLabel.className = 'text-xs text-gray-500 mt-2 block';
+            feedbackLabel.textContent = '실제 성과/피드백 (예: 30분은 모자랐다, 집중 어려웠다)';
+
+            const feedbackInput = document.createElement('textarea');
+            // .feedback-input class has been updated to use light violet border
+            feedbackInput.className = 'feedback-input resize-none h-12';
+            feedbackInput.placeholder = '피드백을 작성하세요... (다음 계획에 반영됩니다)';
+            // Ensure the feedback value is displayed if loading a saved task
+            feedbackInput.value = task.userFeedback || '';
+            
+            itemDiv.appendChild(taskContent);
+            itemDiv.appendChild(feedbackLabel);
+            itemDiv.appendChild(feedbackInput);
+            
+            listContainer.appendChild(itemDiv);
+        });
+        
+        scheduleOutput.appendChild(listContainer);
+        calculateAchievement(); // Initial calculation
+    }
+
+    /**
+     * Calculates and displays the achievement score based on checked tasks.
+     */
+    function calculateAchievement() {
+        // Need to query the current checkboxes displayed in the rendered schedule
+        const checkboxes = scheduleOutput.querySelectorAll('.schedule-item input[type="checkbox"]');
+        const totalTasks = checkboxes.length;
+        if (totalTasks === 0) {
+            achievementDisplay.classList.add('hidden');
+            return;
+        }
+
+        const completedTasks = Array.from(checkboxes).filter(cb => cb.checked).length;
+        const score = Math.round((completedTasks / totalTasks) * 100);
+
+        achievementScore.textContent = `${score}%`;
+        achievementDisplay.classList.remove('hidden');
+
+        // Optional: Change background based on score (Pastel Colors)
+        achievementDisplay.classList.remove('bg-yellow-100', 'bg-red-100', 'bg-green-100', 'text-red-800', 'text-yellow-800', 'text-green-800');
+        if (score < 50) {
+            achievementDisplay.classList.add('bg-red-100', 'text-red-800'); // Pastel Red for low
+        } else if (score < 80) {
+            achievementDisplay.classList.add('bg-yellow-100', 'text-yellow-800'); // Pastel Yellow for mid
+        } else {
+            achievementDisplay.classList.add('bg-green-100', 'text-green-800'); // Pastel Green for high
+        }
+    }
+
+
+    /**
+     * Constructs the system prompt for GPT, including historical feedback.
+     */
+    function constructSystemPrompt(mode, history) {
+        let historyContext = "";
+        
+        // Only use the last 3 non-empty feedback entries
+        const recentFeedback = history.filter(item => item.feedback && item.feedback.trim() !== '').slice(-3);
+        
+        if (recentFeedback.length > 0) {
+            historyContext = "사용자의 과거 피드백을 반드시 반영하여 다음 스케줄에 '학습' 효과를 적용해야 합니다. 다음은 최근 피드백 요약입니다:\n";
+            recentFeedback.forEach(f => {
+                historyContext += `- [${f.date} 피드백]: ${f.feedback}\n`;
+            });
+            historyContext += "\n";
+        }
+
+        const basePrompt = `당신은 개인 맞춤형 AI 플래너입니다. 사용자가 요청한 할 일을 기반으로 시간 기반 일정표를 생성합니다.
+        
+        **핵심 규칙:**
+        1. 시간 기반 일정표만 출력하며, 불필요한 설명, 서론, 결론은 **절대** 포함하지 않습니다. 오직 '시간 ~ 시간 활동명' 또는 '요일: 활동명' 형태의 일정만 출력합니다.
+        2. 장시간 일정(2시간 이상)에는 10~15분 휴식 시간(예: 10:30 ~ 10:45 😴 휴식)을 자동으로 포함합니다.
+        3. 활동에 적절한 이모지(예: 📚 공부, 🏃 운동, 🍽️ 식사, 💻 업무, 🏠 가사, 💤 휴식/수면)를 카테고리별로 통일하여 사용합니다.
+        4. ${mode === 'daily' ? '오늘의 시간별 일정표를 **상세히** 작성합니다. (하루 중 8시간 이상의 활동을 채우는 것을 목표로 합니다.)' : '이번 주의 우선순위를 알아서 배열하여 요일별로 할 일을 채웁니다. (월요일부터 일요일까지 요일별로 구분하여 출력)'}
+        5. ${historyContext} 과거 피드백을 분석하여 다음 계획의 시간 배분이나 휴식 추가 등에 **자동으로 반영**해야 합니다. (예: '30분은 짧았다' -> 다음 스케줄에 해당 활동 시간을 늘림)
+
+        요청된 할 일 목록과 모드(${mode})에 맞춰 일정을 생성하세요.`;
+
+        return basePrompt;
+    }
+
+
+    // --- Core Function: GPT Call ---
+    
+    /**
+     * Handles API key validation and calls the OpenAI API with exponential backoff.
+     */
+    async function generateSchedule() {
+        const apiKey = apiKeyInput.value.trim();
+        const tasks = taskInput.value.trim();
+
+        if (!apiKey) {
+            return showStatus('🔑 OpenAI API Key를 먼저 입력해주세요.', true);
+        }
+        if (!tasks) {
+            return showStatus('📝 할 일 목록을 입력해주세요.', true);
+        }
+
+        statusMessage.textContent = '🚀 AI 스케줄 생성 중... (잠시만 기다려주세요)';
+        statusMessage.classList.remove('text-green-600', 'text-red-600');
+        // Loading text color uses violet-600
+        statusMessage.classList.add('text-violet-600'); 
+        
+        const systemPrompt = constructSystemPrompt(currentMode, feedbackHistory);
+
+        const MAX_RETRIES = 3;
+        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+            try {
+                const response = await fetch(OPENAI_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: 'gpt-3.5-turbo', // or 'gpt-4o' for higher quality/cost
+                        messages: [
+                            { role: 'system', content: systemPrompt },
+                            { role: 'user', content: `나의 할 일 목록: ${tasks}` }
+                        ],
+                        temperature: 0.7
+                    })
+                });
+
+                if (!response.ok) {
+                    // If status is 429 (Rate Limit), attempt retry
+                    if (response.status === 429 && attempt < MAX_RETRIES - 1) {
+                        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        continue; // Skip the rest of the loop and try again
+                    }
+                    const errorData = await response.json();
+                    console.error("API Error:", errorData);
+                    throw new Error(`API 호출 실패: ${response.status} ${errorData.error ? errorData.error.message : response.statusText}`);
+                }
+
+                const data = await response.json();
+                const rawText = data.choices[0].message.content.trim();
+                
+                if (rawText) {
+                    renderSchedule(rawText);
+                    showStatus('✅ 스케줄이 성공적으로 생성되었습니다. 피드백을 기록하고 저장하세요!');
+                } else {
+                    showStatus('⚠️ AI가 유효한 스케줄을 생성하지 못했습니다. 할 일 목록을 구체적으로 작성해 보세요.', true);
+                }
+                return; // Exit function on success
+                
+            } catch (error) {
+                if (attempt === MAX_RETRIES - 1) {
+                    console.error(error);
+                    showStatus(`❌ 오류 발생: ${error.message}. API Key 또는 네트워크를 확인하세요.`, true);
+                }
+                // If it was a 429 handled by the loop, the error is suppressed until max retries reached.
+            }
+        }
+        // If execution reaches here, it means all retries failed.
+        statusMessage.classList.remove('text-violet-600');
+    }
+
+
+    // --- Event Listeners ---
+
+    // Mode Selector
+    modeDailyBtn.addEventListener('click', () => {
+        currentMode = 'daily';
+        // Active mode uses violet-400
+        modeDailyBtn.classList.add('bg-violet-400', 'text-white');
+        modeDailyBtn.classList.remove('text-gray-600', 'hover:bg-violet-50');
+        modeWeeklyBtn.classList.remove('bg-violet-400', 'text-white');
+        modeWeeklyBtn.classList.add('text-gray-600', 'hover:bg-violet-50');
+        showStatus('일간 플래너 모드로 전환되었습니다.');
+    });
+
+    modeWeeklyBtn.addEventListener('click', () => {
+        currentMode = 'weekly';
+        // Active mode uses violet-400
+        modeWeeklyBtn.classList.add('bg-violet-400', 'text-white');
+        modeWeeklyBtn.classList.remove('text-gray-600', 'hover:bg-violet-50');
+        modeDailyBtn.classList.remove('bg-violet-400', 'text-white');
+        modeDailyBtn.classList.add('text-gray-600', 'hover:bg-violet-50');
+        showStatus('주간 플래너 모드로 전환되었습니다.');
+    });
+
+    // Action Buttons
+    document.getElementById('generateBtn').addEventListener('click', generateSchedule);
+    document.getElementById('saveBtn').addEventListener('click', saveSchedule);
+    document.getElementById('loadBtn').addEventListener('click', loadSchedules);
+    document.getElementById('clearBtn').addEventListener('click', () => {
+        // Clear all UI inputs and state
+        apiKeyInput.value = '';
+        taskInput.value = '';
+        scheduleOutput.innerHTML = `<h3 class="text-lg font-semibold text-gray-600 text-center">AI 생성 스케줄이 여기에 표시됩니다.</h3>`;
+        currentSchedule = [];
+        achievementDisplay.classList.add('hidden');
+        showStatus('모든 내용이 초기화되었습니다. (저장된 기록은 유지)');
+    });
+
+
+    // --- Initialization ---
+    window.onload = () => {
+        loadFeedbackHistory();
+        console.log("App Initialized. Feedback history loaded for AI learning.");
+        showStatus('✨ 플래너 준비 완료! Key와 할 일을 입력하세요.');
+    };
+    
+</script>
+
+</body>
+</html>
