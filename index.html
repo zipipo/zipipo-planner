@@ -289,9 +289,13 @@
     function renderSchedule(scheduleData) {
         if (typeof scheduleData === 'string') {
             // Case: New schedule generation (from raw text)
-            const lines = scheduleData.split('\n').filter(line => line.trim());
+            const lines = scheduleData.split('\n')
+                .map(line => line.trim())
+                // Filtering out empty lines AND lines that contain common separators or headers
+                .filter(line => line.length > 0 && !line.includes('---')); 
+                
             currentSchedule = lines.map(line => ({
-                text: line.trim(),
+                text: line, // use the trimmed line
                 userFeedback: '',
                 isCompleted: false
             }));
@@ -402,12 +406,14 @@
         const basePrompt = `당신은 개인 맞춤형 AI 플래너입니다. 사용자가 요청한 할 일을 기반으로 시간 기반 일정표를 생성합니다.
         
         **핵심 규칙:**
-        1. 시간 기반 일정표만 출력하며, 불필요한 설명, 서론, 결론은 **절대** 포함하지 않습니다. 오직 '시간 ~ 시간 활동명' 또는 '요일: 활동명' 형태의 일정만 출력합니다.
+        1. 시간 기반 일정표만 출력하며, 불필요한 제목, 설명, 서론, 결론, 구분선(--- 등)은 **절대** 포함하지 않습니다. 오직 '시간 ~ 시간 활동명 이모지' 또는 '요일: 활동명 이모지' 형태의 **순수한 일정 목록**만 출력합니다.
         2. 장시간 일정(2시간 이상)에는 10~15분 휴식 시간(예: 10:30 ~ 10:45 😴 휴식)을 자동으로 포함합니다.
         3. 활동에 적절한 이모지(예: 📚 공부, 🏃 운동, 🍽️ 식사, 💻 업무, 🏠 가사, 💤 휴식/수면)를 카테고리별로 통일하여 사용합니다.
         4. ${mode === 'daily' ? '오늘의 시간별 일정표를 **상세히** 작성합니다. (하루 중 8시간 이상의 활동을 채우는 것을 목표로 합니다.)' : '이번 주의 우선순위를 알아서 배열하여 요일별로 할 일을 채웁니다. (월요일부터 일요일까지 요일별로 구분하여 출력)'}
-        5. ${historyContext} 과거 피드백을 분석하여 다음 계획의 시간 배분이나 휴식 추가 등에 **자동으로 반영**해야 합니다. (예: '30분은 짧았다' -> 다음 스케줄에 해당 활동 시간을 늘림)
+        5. **[가장 중요]** 사용자가 명시한 활동 및 시간 범위를 **절대** 벗어나지 마세요. 사용자가 요청하지 않은 임의의 아침/밤 활동(수면, 아침 식사 등)을 추가하지 않습니다.
 
+        ${historyContext} 과거 피드백을 분석하여 다음 계획의 시간 배분이나 휴식 추가 등에 **자동으로 반영**해야 합니다.
+        
         요청된 할 일 목록과 모드(${mode})에 맞춰 일정을 생성하세요.`;
 
         return basePrompt;
